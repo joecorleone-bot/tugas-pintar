@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Check, Circle, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Check, Circle, Plus, Trash2, Waves } from 'lucide-react';
 
 type Task = { id: number; title: string; done: boolean };
 
@@ -15,8 +15,24 @@ export default function Home() {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [text, setText] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'done'>('all');
+  const [ready, setReady] = useState(false);
 
-  const visible = useMemo(() => tasks.filter(t => filter === 'all' || (filter === 'active' ? !t.done : t.done)), [tasks, filter]);
+  useEffect(() => {
+    const saved = window.localStorage.getItem('ombak-tasks');
+    if (saved) {
+      try { setTasks(JSON.parse(saved)); } catch { /* keep defaults */ }
+    }
+    setReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (ready) window.localStorage.setItem('ombak-tasks', JSON.stringify(tasks));
+  }, [tasks, ready]);
+
+  const visible = useMemo(
+    () => tasks.filter(t => filter === 'all' || (filter === 'active' ? !t.done : t.done)),
+    [tasks, filter]
+  );
   const remaining = tasks.filter(t => !t.done).length;
 
   function addTask(e: React.FormEvent) {
@@ -27,17 +43,28 @@ export default function Home() {
     setText('');
   }
 
-  function toggle(id: number) { setTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t)); }
-  function remove(id: number) { setTasks(prev => prev.filter(t => t.id !== id)); }
+  function toggle(id: number) {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
+  }
+
+  function remove(id: number) {
+    setTasks(prev => prev.filter(t => t.id !== id));
+  }
 
   return (
     <main className="shell">
+      <div className="wave waveOne" />
+      <div className="wave waveTwo" />
       <section className="card">
         <header>
-          <div>
-            <p className="eyebrow">PRODUCTIVITY</p>
-            <h1>Tugas Pintar</h1>
-            <p className="subtitle">Senarai tugasan harian anda</p>
+          <div className="brand">
+            <div className="brandMark"><Waves size={22} strokeWidth={2.4} /></div>
+            <div>
+              <p className="brandName">OMBAK ASSOCIATES</p>
+              <p className="eyebrow">PRODUCTIVITY</p>
+              <h1>Tugas Pintar</h1>
+              <p className="subtitle">Senarai tugasan harian anda</p>
+            </div>
           </div>
           <div className="count"><strong>{remaining}</strong><span>belum selesai</span></div>
         </header>
@@ -48,19 +75,25 @@ export default function Home() {
         </form>
 
         <nav className="filters" aria-label="Penapis tugas">
-          {(['all','active','done'] as const).map(f => <button key={f} className={filter === f ? 'selected' : ''} onClick={() => setFilter(f)}>{f === 'all' ? 'Semua' : f === 'active' ? 'Belum selesai' : 'Selesai'}</button>)}
+          {(['all', 'active', 'done'] as const).map(f => (
+            <button type="button" key={f} className={filter === f ? 'selected' : ''} onClick={() => setFilter(f)}>
+              {f === 'all' ? 'Semua' : f === 'active' ? 'Belum selesai' : 'Selesai'}
+            </button>
+          ))}
         </nav>
 
         <div className="list">
           {visible.length === 0 ? <div className="empty">Tiada tugasan dalam kategori ini.</div> : visible.map(task => (
             <div className={`task ${task.done ? 'completed' : ''}`} key={task.id}>
-              <button className="check" onClick={() => toggle(task.id)} aria-label={task.done ? 'Tanda belum selesai' : 'Tanda selesai'}>{task.done ? <Check size={18} /> : <Circle size={18} />}</button>
+              <button type="button" className="check" onClick={() => toggle(task.id)} aria-label={task.done ? 'Tanda belum selesai' : 'Tanda selesai'}>
+                {task.done ? <Check size={18} /> : <Circle size={18} />}
+              </button>
               <span>{task.title}</span>
-              <button className="delete" onClick={() => remove(task.id)} aria-label="Padam tugas"><Trash2 size={17} /></button>
+              <button type="button" className="delete" onClick={() => remove(task.id)} aria-label="Padam tugas"><Trash2 size={17} /></button>
             </div>
           ))}
         </div>
-        <footer>{tasks.length} tugasan · Data disimpan dalam sesi ini</footer>
+        <footer>{tasks.length} tugasan · Disimpan secara automatik pada peranti ini</footer>
       </section>
     </main>
   );
