@@ -1,99 +1,75 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Circle, Plus, Trash2, Waves } from 'lucide-react';
+import { CalendarDays, Check, Circle, LayoutDashboard, Plus, Search, Trash2, Waves } from 'lucide-react';
 
-type Task = { id: number; title: string; done: boolean };
+type Task = { id: number; title: string; done: boolean; priority: 'High' | 'Medium' | 'Low'; category: string };
 
 const initialTasks: Task[] = [
-  { id: 1, title: 'Semak email penting', done: false },
-  { id: 2, title: 'Follow up quotation', done: false },
-  { id: 3, title: 'Update project status', done: true },
+  { id: 1, title: 'Semak email penting', done: false, priority: 'High', category: 'Admin' },
+  { id: 2, title: 'Follow up quotation', done: false, priority: 'High', category: 'Sales' },
+  { id: 3, title: 'Update project status', done: true, priority: 'Medium', category: 'Project' },
+  { id: 4, title: 'Prepare weekly team update', done: false, priority: 'Medium', category: 'Project' },
 ];
 
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [text, setText] = useState('');
-  const [filter, setFilter] = useState<'all' | 'active' | 'done'>('all');
+  const [filter, setFilter] = useState('All');
+  const [search, setSearch] = useState('');
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const saved = window.localStorage.getItem('ombak-tasks');
-    if (saved) {
-      try { setTasks(JSON.parse(saved)); } catch { /* keep defaults */ }
-    }
+    const saved = localStorage.getItem('ombak-tasks-v2');
+    if (saved) { try { setTasks(JSON.parse(saved)); } catch {} }
     setReady(true);
   }, []);
+  useEffect(() => { if (ready) localStorage.setItem('ombak-tasks-v2', JSON.stringify(tasks)); }, [tasks, ready]);
 
-  useEffect(() => {
-    if (ready) window.localStorage.setItem('ombak-tasks', JSON.stringify(tasks));
-  }, [tasks, ready]);
-
-  const visible = useMemo(
-    () => tasks.filter(t => filter === 'all' || (filter === 'active' ? !t.done : t.done)),
-    [tasks, filter]
-  );
-  const remaining = tasks.filter(t => !t.done).length;
+  const done = tasks.filter(t => t.done).length;
+  const pending = tasks.length - done;
+  const progress = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
+  const visible = useMemo(() => tasks.filter(t => {
+    const matchesFilter = filter === 'All' || (filter === 'Pending' ? !t.done : t.done) || filter === t.category;
+    return matchesFilter && t.title.toLowerCase().includes(search.toLowerCase());
+  }), [tasks, filter, search]);
 
   function addTask(e: React.FormEvent) {
-    e.preventDefault();
-    const title = text.trim();
-    if (!title) return;
-    setTasks(prev => [{ id: Date.now(), title, done: false }, ...prev]);
-    setText('');
-  }
-
-  function toggle(id: number) {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
-  }
-
-  function remove(id: number) {
-    setTasks(prev => prev.filter(t => t.id !== id));
+    e.preventDefault(); const title = text.trim(); if (!title) return;
+    setTasks(p => [{ id: Date.now(), title, done: false, priority: 'Medium', category: 'General' }, ...p]); setText('');
   }
 
   return (
-    <main className="shell">
-      <div className="wave waveOne" />
-      <div className="wave waveTwo" />
-      <section className="card">
-        <header>
-          <div className="brand">
-            <div className="brandMark"><Waves size={22} strokeWidth={2.4} /></div>
-            <div>
-              <p className="brandName">OMBAK ASSOCIATES</p>
-              <p className="eyebrow">PRODUCTIVITY</p>
-              <h1>Tugas Pintar</h1>
-              <p className="subtitle">Senarai tugasan harian anda</p>
-            </div>
-          </div>
-          <div className="count"><strong>{remaining}</strong><span>belum selesai</span></div>
-        </header>
+    <main className="dashboard">
+      <aside className="sidebar">
+        <div className="logo"><span><Waves size={21}/></span><div><b>OMBAK</b><small>ASSOCIATES</small></div></div>
+        <div className="sideTitle">WORKSPACE</div>
+        <button className="sideItem active"><LayoutDashboard size={18}/> Dashboard</button>
+        <button className="sideItem"><CalendarDays size={18}/> My Tasks</button>
+        <div className="sideBottom"><div className="miniWave"><Waves size={28}/></div><b>Keep moving forward.</b><small>Ombak Productivity Hub</small></div>
+      </aside>
 
-        <form className="add" onSubmit={addTask}>
-          <input value={text} onChange={e => setText(e.target.value)} placeholder="Apa yang perlu dibuat?" aria-label="Tugas baru" />
-          <button aria-label="Tambah tugas" type="submit"><Plus size={21} /></button>
-        </form>
+      <section className="content">
+        <header className="topbar"><div><span className="kicker">MONDAY · 10 AUGUST 2026</span><h1>Good morning, Joe <span>👋</span></h1><p>Here's what needs your attention today.</p></div><div className="profile">JH</div></header>
 
-        <nav className="filters" aria-label="Penapis tugas">
-          {(['all', 'active', 'done'] as const).map(f => (
-            <button type="button" key={f} className={filter === f ? 'selected' : ''} onClick={() => setFilter(f)}>
-              {f === 'all' ? 'Semua' : f === 'active' ? 'Belum selesai' : 'Selesai'}
-            </button>
-          ))}
-        </nav>
-
-        <div className="list">
-          {visible.length === 0 ? <div className="empty">Tiada tugasan dalam kategori ini.</div> : visible.map(task => (
-            <div className={`task ${task.done ? 'completed' : ''}`} key={task.id}>
-              <button type="button" className="check" onClick={() => toggle(task.id)} aria-label={task.done ? 'Tanda belum selesai' : 'Tanda selesai'}>
-                {task.done ? <Check size={18} /> : <Circle size={18} />}
-              </button>
-              <span>{task.title}</span>
-              <button type="button" className="delete" onClick={() => remove(task.id)} aria-label="Padam tugas"><Trash2 size={17} /></button>
-            </div>
-          ))}
+        <div className="stats">
+          <div className="stat"><span>Total Tasks</span><strong>{tasks.length}</strong><small>in your workspace</small></div>
+          <div className="stat"><span>Pending</span><strong>{pending}</strong><small>need your attention</small></div>
+          <div className="stat"><span>Completed</span><strong>{done}</strong><small>tasks finished</small></div>
+          <div className="stat progressStat"><span>Daily Progress</span><strong>{progress}%</strong><div className="progress"><i style={{width:`${progress}%`}}/></div></div>
         </div>
-        <footer>{tasks.length} tugasan · Disimpan secara automatik pada peranti ini</footer>
+
+        <div className="sectionHead"><div><h2>Today</h2><p>Focus on what matters most.</p></div><form onSubmit={addTask} className="newTask"><input value={text} onChange={e=>setText(e.target.value)} placeholder="Add a new task..."/><button><Plus size={18}/> Add Task</button></form></div>
+
+        <div className="toolbar"><div className="filters">{['All','Pending','Done','Sales','Project','Admin'].map(f=><button type="button" key={f} className={filter===f?'chosen':''} onClick={()=>setFilter(f)}>{f}</button>)}</div><label className="search"><Search size={16}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search tasks..."/></label></div>
+
+        <div className="taskList">{visible.length===0?<div className="empty">No tasks found.</div>:visible.map(task=><div className={`taskRow ${task.done?'isDone':''}`} key={task.id}>
+          <button className="check" type="button" onClick={()=>setTasks(p=>p.map(t=>t.id===task.id?{...t,done:!t.done}:t))}>{task.done?<Check size={16}/>:<Circle size={17}/>}</button>
+          <div className="taskInfo"><b>{task.title}</b><span>{task.category}</span></div>
+          <span className={`priority ${task.priority.toLowerCase()}`}>{task.priority}</span>
+          <button className="trash" type="button" onClick={()=>setTasks(p=>p.filter(t=>t.id!==task.id))}><Trash2 size={17}/></button>
+        </div>)}</div>
+        <footer>OMBAK ASSOCIATES · Productivity Hub · Tasks are saved automatically on this device</footer>
       </section>
     </main>
   );
